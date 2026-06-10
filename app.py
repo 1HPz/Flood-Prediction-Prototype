@@ -33,7 +33,9 @@ def load_and_train_model():
             'slope': np.random.uniform(0, 30, n_samples),
             'rainfall_intensity': np.random.uniform(50, 300, n_samples),
             'distance_to_river': np.random.uniform(10, 5000, n_samples),
-            'urban_percentage': np.random.uniform(0, 100, n_samples)
+            'urban_percentage': np.random.uniform(0, 100, n_samples),
+            'is_water': np.random.choice([0, 1], n_samples),
+            'total_days': [365]*n_samples
         }
         df = pd.DataFrame(mock_data)
         lam = np.exp(0.5 + 0.01 * df['rainfall_intensity'] - 0.01 * df['elevation'] - 0.0005 * df['distance_to_river'])
@@ -48,12 +50,16 @@ def load_and_train_model():
     else:
         df['user_friendly_name'] = df['h3_index']
     
-    # กำหนดคอลัมน์ที่ไม่ใช้เป็นฟีเจอร์ในการเทรนโมเดล
-    drop_cols = ['h3_index', 'center_lat', 'center_lon', 'user_friendly_name', 'flood_count']
-    actual_drop_cols = [col for col in drop_cols if col in df.columns]
-    
-    X = df.drop(columns=actual_drop_cols)
+    # แยกคอลัมน์ Target (y) ออกมาก่อน
     y = df['flood_count'] if 'flood_count' in df.columns else np.random.poisson(1, len(df))
+    
+    # กำหนดคอลัมน์ที่ต้องลบทิ้ง (ไม่นำมาเป็น Features สำหรับเทรนโมเดล)
+    drop_cols = ['h3_index', 'center_lat', 'center_lon', 'user_friendly_name', 'flood_count', 'is_water', 'total_days']
+    actual_drop_cols = [col for col in drop_cols if col in df.columns]
+    X = df.drop(columns=actual_drop_cols)
+    
+    # 🔥 [จุดแก้ไขสำคัญ] เลือกเฉพาะคอลัมน์ที่เป็น "ตัวเลข" เท่านั้น เพื่อป้องกันปัญหาข้อความ/String หลุดเข้าโมเดล
+    X = X.select_dtypes(include=[np.number])
     
     # แบ่งข้อมูลและเทรนโมเดล XGBoost Poisson Regression
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -102,6 +108,10 @@ for col in feature_names:
         user_input[col] = st.sidebar.slider("ระยะห่างจากแม่น้ำ/ลำคลอง (เมตร)", 10.0, 5000.0, default_val)
     elif col == 'urban_percentage':
         user_input[col] = st.sidebar.slider("สัดส่วนความเป็นเมือง/คอนกรีต (%)", 0.0, 100.0, default_val)
+    else:
+        # ฟีเจอร์ตัวเลขอื่นๆ นอกเหนือจาก 5 ตัวหลัก จะสร้าง slider ให้อัตโนมัติ
+        max_val = float(main_df[col].max()) if float(main_df[col].max()) > default_val else default_val + 10.0
+        user_input[col] = st.sidebar.slider(f"ปัจจัย: {col}", 0.0, max_val, default_val)
 
 input_df = pd.DataFrame([user_input])
 
@@ -112,12 +122,13 @@ with col1:
     st.subheader("🗺️ ตําแหน่งพิกัดบนแผนที่ภูมิศาสตร์")
     
     # แสดงแผนที่ปักหมุดจุดที่เลือก
-    map_data = pd.DataFrame({
-        'lat': [selected_row['center_lat']],
-        'lon': [selected_row['center_lon']]
-    })
-    st.map(map_data, zoom=13)
-    st.caption(f"🆔 เบื้องหลังระบบ (H3 Index): {selected_row['h3_index']}")
+    if 'center_lat' in main_df.columns and 'center_lon' in main_df.columns:
+        map_data = pd.DataFrame({
+            'lat': [selected_row['center_lat']],
+            'lon': [selected_row['center_lon']]
+        })
+        st.map(map_data, zoom=13)
+        st.caption(f"🆔 เบื้องหลังระบบ (H3 Index): {selected_row['h3_index']}")
     
     st.markdown("---")
     st.write("📋 **คุณลักษณะทางกายภาพที่ใช้คำนวณ:**")
