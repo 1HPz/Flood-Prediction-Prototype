@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 st.title("🌊 ระบบจำลองการทำนายจำนวนครั้งน้ำท่วม (Prototype)")
-st.write("โมเดลนี้พัฒนาขึ้นโดยใช้ XGBoost (Poisson Regression) สำหรับข้อมูลประเภทนับจำนวน (Count Data)")
+st.write("โมเดลนี้พัฒนาขึ้นโดยใช้ XGBoost สำหรับข้อมูลประเภทนับจำนวนและทำการปรับพารามิเตอร์ให้เหมาะสมแล้ว")
 st.markdown("---")
 
 # --- 2. MOCK OR LOAD DATA ---
@@ -111,16 +111,6 @@ with col1:
             st.warning("🟡 ระดับความเสี่ยงปานกลาง: ควรเฝ้าระวังเมื่อมีฝนตกหนักสะสม")
         else:
             st.error("🔴 ระดับความเสี่ยงสูง: พื้นที่นี้มีแนวโน้มเกิดน้ำท่วมซ้ำซากสูง")
-
-with col2:
-    st.subheader("📈 ความสำคัญของปัจจัย (Feature Importance)")
-    st.write("กราฟแสดงว่าปัจจัยใดส่งผลต่อการตัดสินใจของโมเดล XGBoost (Gain)")
-    
-    # พล็อต Feature Importance สไตล์เดียวกับใน Notebook
-    fig, ax = plt.subplots(figsize=(6, 4.5))
-    xgb.plot_importance(model, max_num_features=10, importance_type='gain', color='crimson', ax=ax)
-    plt.title('XGBoost Feature Importance (Gain)')
-    st.pyplot(fig)
 
 # --- 5. MODEL PERFORMANCE FOOTER ---
 st.markdown("---")
