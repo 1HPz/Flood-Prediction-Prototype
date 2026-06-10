@@ -40,7 +40,7 @@ def load_and_train_model():
     X = pd.DataFrame(mock_data)
     # จำลอง target (flood_count) ให้สัมพันธ์กับฟีเจอร์
     lam = np.exp(0.5 + 0.01 * X['rainfall_intensity'] - 0.01 * X['elevation'] - 0.0005 * X['distance_to_river'])
-    y = np.random.poison(lam)
+    y = np.random.poisson(lam)
     
     # แบ่งข้อมูล
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
