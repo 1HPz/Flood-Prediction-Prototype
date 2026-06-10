@@ -40,7 +40,6 @@ def load_data_and_model():
         df = pd.DataFrame(mock_data)
 
     # แปลงตัวเลือก H3 เป็นข้อความที่เข้าใจง่ายขึ้นให้ User อ่านใน Selectbox
-    # ผลลัพธ์จะเป็น เช่น -> "📍 พิกัด 13.756, 100.501 (เคยท่วม 3 ครั้ง)"
     if 'center_lat' in df.columns and 'center_lon' in df.columns:
         df['user_friendly_name'] = df.apply(
             lambda r: f"📍 พิกัด ({r['center_lat']:.3f}, {r['center_lon']:.3f}) " + 
@@ -50,7 +49,14 @@ def load_data_and_model():
     else:
         df['user_friendly_name'] = df['h3_index']
 
-    drop_cols = ['h3_index', 'flood_count', 'is_water', 'total_days', 'center_lat', 'center_lon', 'user_friendly_name']
+    # 📌 อัปเดต: เพิ่มตัวแปรที่ต้องการตัดทิ้งลงใน drop_cols
+    drop_cols = [
+        'h3_index', 'flood_count', 'is_water', 'total_days', 'center_lat', 'center_lon', 'user_friendly_name',
+        'year', 'P1_max', 'P1_mean', 'P21_max', 'P67_max', 'flood_days', 'flow_acc_log', 'dist_river', 
+        'mean_ndwi', 'max_ndwi', 'std_ndwi'
+    ]
+    
+    # เลือกลบเฉพาะคอลัมน์ที่มีอยู่จริงใน DataFrame เพื่อป้องกัน Error
     actual_drop_cols = [col for col in drop_cols if col in df.columns]
     
     X = df.drop(columns=actual_drop_cols)
@@ -71,7 +77,7 @@ with st.spinner("กำลังเตรียมระบบข้อมูล
 # --- 3. SIDEBAR: USER FRIENDLY LOCATION SELECTOR ---
 st.sidebar.header("📍 ค้นหาและเลือกพื้นที่")
 
-# ให้ผู้ใช้เลือกจากชื่อภาษาไทย/พิกัดที่เราจัดฟอร์แมตไว้ แทนรหัส H3 บูดๆ
+# ให้ผู้ใช้เลือกจากชื่อภาษาไทย/พิกัดที่เราจัดฟอร์แมตไว้
 location_options = main_df['user_friendly_name'].tolist()
 selected_display_name = st.sidebar.selectbox(
     "เลือกพื้นที่ที่ต้องการตรวจสอบ:", 
@@ -85,7 +91,7 @@ selected_row = main_df[main_df['user_friendly_name'] == selected_display_name].i
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔄 จำลองสถานการณ์เพิ่มเติม (Simulation)")
 
-# ดึงข้อมูลจากจุดที่เลือกมาใส่เป็น Default ในสไลเดอร์
+# ดึงข้อมูลจากจุดที่เลือกมาใส่เป็น Default ในสไลเดอร์ (ตัวแปรที่ถูก drop จะไม่แสดงขึ้นมา)
 user_input = {}
 for col in feature_names:
     default_val = float(selected_row[col])
@@ -100,7 +106,9 @@ for col in feature_names:
     elif col == 'urban_percentage':
         user_input[col] = st.sidebar.slider("ความเป็นเมือง (%)", 0.0, 100.0, default_val)
     else:
-        user_input[col] = st.sidebar.slider(f"{col}", 0.0, float(main_df[col].max()), default_val)
+        # ฟีเจอร์อื่นๆ ที่ไม่ได้ระบุเจาะจง จะสร้าง Slider ให้อัตโนมัติตามค่า Max ในชุดข้อมูล
+        max_val = float(main_df[col].max()) if float(main_df[col].max()) > default_val else default_val + 10.0
+        user_input[col] = st.sidebar.slider(f"{col}", 0.0, max_val, default_val)
 
 input_df = pd.DataFrame([user_input])
 
@@ -117,7 +125,7 @@ with col1:
         st.map(map_data, zoom=13)
         st.caption(f"🆔 รหัสอ้างอิงระบบเบื้องหลัง (H3 Index): {selected_row['h3_index']}")
     
-    st.write("📋 **คุณลักษณะทางกายภาพของพื้นที่นี้:**")
+    st.write("📋 **คุณลักษณะทางกายภาพของพื้นที่นี้ (เฉพาะฟีเจอร์ที่ใช้งาน):**")
     st.dataframe(input_df.T.rename(columns={0: "ค่าปัจจุบัน"}), use_container_width=True)
 
 with col2:
